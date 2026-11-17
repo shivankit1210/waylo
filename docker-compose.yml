@@ -1,0 +1,48 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: waylo-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: waylo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Express + WebSocket API Server
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: waylo-server
+    restart: always
+    environment:
+      DATABASE_URL: "postgresql://postgres:password123@postgres:5432/waylo?schema=public"
+      JWT_SECRET: "waylo_production_jwt_secret_key_min_32_chars_2026!"
+      JWT_EXPIRES_IN: "7d"
+      PORT: 3001
+      NODE_ENV: production
+      CORS_ORIGIN: "*"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+
+  # Vite + React Frontend
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: waylo-web
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+
+volumes:
+  pgdata:
