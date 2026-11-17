@@ -1,0 +1,1 @@
+{"version":3,"file":"WeatherWidget.d.ts","sourceRoot":"","sources":["WeatherWidget.tsx"],"names":[],"mappings":"AASA,OAAO,KAAK,EAAE,eAAe,EAAwB,MAAM,eAAe,CAAC;AAE3E,UAAU,kBAAkB;IAC1B,OAAO,CAAC,EAAE,eAAe,CAAC;IAC1B,SAAS,CAAC,EAAE,MAAM,CAAC;CACpB;AAED,wBAAgB,aAAa,CAAC,EAAE,OAAO,EAAE,SAAc,EAAE,EAAE,kBAAkB,sCA2G5E"}

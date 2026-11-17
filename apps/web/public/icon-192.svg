@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="wayloGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="50%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <linearGradient id="dialGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#FFFFFF" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect width="192" height="192" rx="42" fill="url(#wayloGrad)" />
+
+  <!-- Compass Outer Ring -->
+  <circle cx="96" cy="96" r="62" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-opacity="0.3" />
+  <circle cx="96" cy="96" r="54" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.5" stroke-dasharray="3 5" />
+
+  <!-- Compass Cardinal Ticks -->
+  <line x1="96" y1="30" x2="96" y2="40" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" />
+  <line x1="96" y1="152" x2="96" y2="162" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" />
+  <line x1="30" y1="96" x2="40" y2="96" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" />
+  <line x1="152" y1="96" x2="162" y2="96" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Compass Needles -->
+  <!-- North Needle (Red/Orange Accent) -->
+  <polygon points="96,50 108,96 96,90" fill="#EF4444" />
+  <polygon points="96,50 84,96 96,90" fill="#F87171" />
+
+  <!-- South Needle (Ice White) -->
+  <polygon points="96,142 108,96 96,102" fill="#E2E8F0" />
+  <polygon points="96,142 84,96 96,102" fill="#FFFFFF" />
+
+  <!-- Center Pivot Pin -->
+  <circle cx="96" cy="96" r="7" fill="#0F172A" />
+  <circle cx="96" cy="96" r="4" fill="#38BDF8" />
+</svg>

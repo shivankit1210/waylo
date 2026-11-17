@@ -1,0 +1,28 @@
+{
+  "name": "waylo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Waylo — Your whole trip, in one place. AI-powered trip management platform.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/server & npm run dev --workspace=apps/web",
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:server": "npm run build --workspace=apps/server",
+    "build:web": "npm run build --workspace=apps/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "npm run db:migrate --workspace=apps/server",
+    "db:generate": "npm run db:generate --workspace=apps/server",
+    "db:studio": "npm run db:studio --workspace=apps/server",
+    "db:seed": "npm run db:seed --workspace=apps/server"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
