@@ -175,6 +175,7 @@ let mockTrips: TripWithDetails[] = [
 export interface GetTripsParams extends Partial<PaginationInput> {
   status?: TripStatus;
   search?: string;
+  pageSize?: number;
 }
 
 export async function getTrips(params?: GetTripsParams): Promise<PaginatedResponse<TripWithDetails>> {
@@ -466,7 +467,7 @@ export async function removeMember(tripId: string, memberId: string): Promise<vo
 
   const trip = mockTrips.find((t) => t.id === tripId);
   if (trip) {
-    trip.members = (trip.members || []).filter((m) => m.id !== memberId);
+    trip.members = (trip.members || []).filter((m: TripMemberSummary) => m.id !== memberId);
     if (trip._count) trip._count.members = trip.members.length;
   }
 }

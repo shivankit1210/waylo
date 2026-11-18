@@ -5,7 +5,8 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@waylo/shared": ["../../packages/shared/src/index.ts"]
     },
     "types": ["vite/client"]
   },
