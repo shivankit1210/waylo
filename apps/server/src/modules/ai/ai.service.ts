@@ -94,48 +94,50 @@ export class AIService {
     const apiKey = env.GEMINI_API_KEY;
     if (!apiKey) return null;
 
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-      const payload: any = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-        },
-      };
+    const models = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash'];
 
-      if (isJson) {
-        payload.generationConfig.responseMimeType = 'application/json';
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const payload: any = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+          },
+        };
+
+        if (isJson) {
+          payload.generationConfig.responseMimeType = 'application/json';
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          continue;
+        }
+
+        const data: any = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) continue;
+
+        if (isJson) {
+          let cleaned = text.trim();
+          if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
+          else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
+          if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+          return JSON.parse(cleaned.trim());
+        }
+
+        return text;
+      } catch (err) {
+        continue;
       }
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        logger.warn(`Gemini API responded with status ${res.status}: ${errText}`);
-        return null;
-      }
-
-      const data: any = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return null;
-
-      if (isJson) {
-        let cleaned = text.trim();
-        if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
-        else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
-        if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-        return JSON.parse(cleaned.trim());
-      }
-
-      return text;
-    } catch (err) {
-      logger.warn('Failed to call Gemini API, falling back to curated templates:', err);
-      return null;
     }
+    return null;
   }
 
   /**
