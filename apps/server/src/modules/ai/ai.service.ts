@@ -88,13 +88,14 @@ function findDestinationProfile(destination: string): DestinationProfile | null 
 
 export class AIService {
   /**
-   * Helper to invoke Google Gemini 1.5 Flash with structured JSON or text
+   * Helper to invoke Google Gemini with structured JSON or text
    */
   private async callGemini(prompt: string, isJson: boolean = true): Promise<any> {
     const apiKey = env.GEMINI_API_KEY;
     if (!apiKey) return null;
 
-    const models = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+    // Put fastest models first for minimal generation latency
+    const models = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.8-flash'];
 
     for (const model of models) {
       try {
@@ -114,15 +115,19 @@ export class AIService {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(12000),
         });
 
         if (!res.ok) {
+          logger.warn(`Gemini model ${model} returned HTTP ${res.status}`);
           continue;
         }
 
         const data: any = await res.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) continue;
+
+        logger.info(`✨ Successfully invoked Gemini model: ${model}`);
 
         if (isJson) {
           let cleaned = text.trim();
@@ -133,7 +138,8 @@ export class AIService {
         }
 
         return text;
-      } catch (err) {
+      } catch (err: any) {
+        logger.warn(`Gemini model ${model} failed: ${err.message}`);
         continue;
       }
     }
@@ -196,7 +202,7 @@ Include real local attractions and authentic food spots for ${destination}.`;
 
       const aiPlan = await this.callGemini(prompt, true);
       if (aiPlan && Array.isArray(aiPlan.days) && aiPlan.days.length > 0) {
-        logger.info(`✨ Generated itinerary for ${destination} using Google Gemini 1.5 Flash`);
+        logger.info(`✨ Generated itinerary for ${destination} using Google Gemini`);
         return {
           tripTitle: aiPlan.tripTitle || `${destination} Adventure`,
           summary: aiPlan.summary || `A personalized ${daysCount}-day trip to ${destination}.`,

@@ -2,9 +2,20 @@
 // Waylo Service Worker — PWA & Offline Engine
 // ============================================================
 
-const CACHE_NAME = 'waylo-shell-v1';
-const TILES_CACHE_NAME = 'waylo-tiles-v1';
-const API_CACHE_NAME = 'waylo-api-v1';
+// If running on localhost / development, self-destruct and don't cache anything
+if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+  self.addEventListener('install', () => self.skipWaiting());
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+        .then(() => self.registration.unregister())
+    );
+  });
+}
+
+const CACHE_NAME = 'waylo-shell-v2';
+const TILES_CACHE_NAME = 'waylo-tiles-v2';
+const API_CACHE_NAME = 'waylo-api-v2';
 
 const STATIC_PRECACHE_URLS = [
   '/',
@@ -16,6 +27,9 @@ const STATIC_PRECACHE_URLS = [
 
 // Install: pre-cache core application shell
 self.addEventListener('install', (event) => {
+  if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+    return self.skipWaiting();
+  }
   event.waitUntil(
     caches
       .open(CACHE_NAME)
@@ -45,6 +59,9 @@ self.addEventListener('activate', (event) => {
 
 // Fetch: intelligent caching strategies
 self.addEventListener('fetch', (event) => {
+  if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+    return; // Do not intercept any requests on localhost
+  }
   const { request } = event;
   const url = new URL(request.url);
 
