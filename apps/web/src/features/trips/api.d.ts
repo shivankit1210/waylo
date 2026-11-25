@@ -2,6 +2,7 @@ import type { TripWithDetails, TripMemberSummary, TripStatus, CreateTripInput, U
 export interface GetTripsParams extends Partial<PaginationInput> {
     status?: TripStatus;
     search?: string;
+    pageSize?: number;
 }
 export declare function getTrips(params?: GetTripsParams): Promise<PaginatedResponse<TripWithDetails>>;
 export declare function getTrip(tripId: string): Promise<TripWithDetails>;

@@ -95,13 +95,17 @@ export function useLiveTrackingWebSocket(tripId, initialCenter) {
     useEffect(() => {
         if (!tripId || !token)
             return;
+        const apiUrl = import.meta.env?.VITE_API_URL || '';
         let wsUrl = 'ws://localhost:3001/ws/live';
-        if (typeof window !== 'undefined') {
+        if (apiUrl) {
+            // Convert http(s) to ws(s) and trim trailing /api/v1 if present
+            wsUrl = apiUrl.replace(/^http(s?):\/\//i, 'ws$1://').replace(/\/api\/v1\/?$/, '') + '/ws/live';
+        }
+        else if (typeof window !== 'undefined') {
             const isHttps = window.location.protocol === 'https:';
             const host = window.location.hostname;
-            // In development, backend runs on port 3001
-            const port = '3001';
-            wsUrl = `${isHttps ? 'wss:' : 'ws:'}//${host}:${port}/ws/live`;
+            const port = window.location.port ? `:${window.location.port}` : '';
+            wsUrl = `${isHttps ? 'wss:' : 'ws:'}//${host}${port}/ws/live`;
         }
         let ws;
         try {
