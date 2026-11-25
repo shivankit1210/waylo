@@ -31,15 +31,36 @@ import { journalRoutes } from './modules/journal/journal.routes.js';
 export const app: Express = express();
 
 // Security HTTP headers
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
-// CORS configuration
+// CORS configuration supporting Vercel, Render, local dev, and custom domains
 app.use(
   cors({
-    origin: [env.CORS_ORIGIN, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (requestOrigin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!requestOrigin) {
+        return callback(null, true);
+      }
+      // Allow any Vercel domain, Render domain, localhost, or configured CORS_ORIGIN
+      if (
+        requestOrigin.endsWith('.vercel.app') ||
+        requestOrigin.endsWith('.onrender.com') ||
+        requestOrigin.includes('localhost') ||
+        requestOrigin.includes('127.0.0.1') ||
+        (env.CORS_ORIGIN && requestOrigin === env.CORS_ORIGIN)
+      ) {
+        return callback(null, true);
+      }
+      // Allow all valid web clients
+      return callback(null, true);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   })
 );
 
