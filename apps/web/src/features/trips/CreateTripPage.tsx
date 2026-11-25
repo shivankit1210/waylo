@@ -28,6 +28,7 @@ import {
   type CreateTripInput,
 } from '@waylo/shared';
 import { useCreateTrip } from './hooks';
+import { aiApi } from '../ai/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -129,42 +130,84 @@ export function CreateTripPage() {
     );
   };
 
-  // Simulated AI generator
-  const handleGenerateAI = () => {
+  // Real AI trip planner & prompt parser
+  const handleGenerateAI = async () => {
     if (!aiPrompt.trim()) {
       toast.error('Please enter a trip idea or destination');
       return;
     }
 
     setIsGeneratingAI(true);
-    setTimeout(() => {
-      setIsGeneratingAI(false);
-      setValue('name', `Spiti Valley High Altitude Circuit`);
-      setValue('destination', 'Kaza, Spiti Valley, Himachal Pradesh');
-      setValue('startLocation', 'Shimla');
-      setValue('returnLocation', 'Manali');
-      setValue('tripType', TripType.MOTORCYCLE);
-      setValue('transportModes', [TransportMode.MOTORCYCLE, TransportMode.CAR]);
-      setValue(
-        'description',
-        `A breathtaking high-altitude expedition passing through Kinnaur, Nako Lake, Tabo Monastery, Kaza, Key Gompa, and crossing Kunzum Pass into Chandratal.`
-      );
-      setValue('estimatedBudget', 35000);
-      setValue('tags', ['Spiti', 'Himalayas', 'HighAltitude', 'Monasteries']);
-      setValue(
-        'coverImageUrl',
-        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80'
-      );
+    try {
+      const text = aiPrompt.trim();
+      const daysMatch = text.match(/(\d+)\s*(?:day|days)/i);
+      const daysCount = daysMatch ? parseInt(daysMatch[1], 10) : 4;
+
+      const toMatch = text.match(/(?:to|visit|in)\s+([a-zA-Z\s]+?)(?:\s+(?:from|for|with|in|\d)|$)/i);
+      const fromMatch = text.match(/(?:from|starting from|starting at)\s+([a-zA-Z\s]+?)(?:\s+(?:to|for|with|in|\d)|$)/i);
+
+      let dest = toMatch ? toMatch[1].trim() : '';
+      let orig = fromMatch ? fromMatch[1].trim() : '';
+
+      if (!dest) {
+        // Fallback: strip "plan a trip" and use text
+        dest = text.replace(/^(?:plan|create|make)\s+(?:a\s+)?(?:\d+\s+days?\s+)?(?:trip|tour)\s+(?:to\s+)?/i, '').trim();
+      }
+
+      // Try AI generation
+      const plan = await aiApi.generateItinerary({
+        destination: dest || 'Scenic Getaway',
+        origin: orig || undefined,
+        daysCount,
+        tripType: TripType.CAR_ROAD_TRIP,
+        travelPace: 'MODERATE',
+        budget: 'MODERATE',
+        interests: ['Scenic Routes', 'Sightseeing', 'Local Dining'],
+        preferences: text,
+      });
+
+      setValue('name', plan.tripTitle || `${dest} Road Trip`);
+      setValue('destination', dest);
+      if (orig) setValue('startLocation', orig);
+      setValue('description', plan.summary);
+      if (plan.highlights && plan.highlights.length > 0) {
+        setValue('tags', plan.highlights.slice(0, 4));
+      }
+      setValue('tripType', TripType.CAR_ROAD_TRIP);
+      setValue('transportModes', [TransportMode.CAR]);
 
       const d1 = new Date();
-      d1.setDate(d1.getDate() + 20);
+      d1.setDate(d1.getDate() + 7);
       const d2 = new Date();
-      d2.setDate(d2.getDate() + 29);
-      setValue('startDate', d1.toISOString());
-      setValue('endDate', d2.toISOString());
+      d2.setDate(d2.getDate() + 7 + daysCount);
+      setValue('startDate', d1.toISOString().split('T')[0]);
+      setValue('endDate', d2.toISOString().split('T')[0]);
 
-      toast.success('AI plan drafted! Review and customize the details below.');
-    }, 1200);
+      toast.success(`AI generated plan for ${dest}! Review details below.`);
+    } catch (err) {
+      console.warn('AI generation fallback:', err);
+      // Fallback: smart text extraction
+      const text = aiPrompt.trim();
+      const daysMatch = text.match(/(\d+)\s*(?:day|days)/i);
+      const days = daysMatch ? parseInt(daysMatch[1], 10) : 4;
+      const toMatch = text.match(/(?:to|visit|in)\s+([a-zA-Z\s]+?)(?:\s+(?:from|for|with|in|\d)|$)/i);
+      const fromMatch = text.match(/(?:from|starting from)\s+([a-zA-Z\s]+?)(?:\s+(?:to|for|with|in|\d)|$)/i);
+
+      const dest = toMatch ? toMatch[1].trim() : text;
+      const orig = fromMatch ? fromMatch[1].trim() : '';
+
+      setValue('name', `${dest} Exploration`);
+      setValue('destination', dest);
+      if (orig) setValue('startLocation', orig);
+      setValue(
+        'description',
+        `A custom ${days}-day journey to ${dest}${orig ? ` starting from ${orig}` : ''}. Includes sightseeing, local culinary stops, and scenic drives.`
+      );
+
+      toast.success(`Drafted plan for ${dest}!`);
+    } finally {
+      setIsGeneratingAI(false);
+    }
   };
 
   const onSubmit = async (data: CreateTripInput) => {

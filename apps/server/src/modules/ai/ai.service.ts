@@ -191,6 +191,7 @@ Return ONLY a valid JSON object matching this TypeScript structure:
 
 Ensure all itemType values match: SIGHTSEEING, ACTIVITY, MEAL, TRAVEL, REST, FUEL_STOP, CHECK_IN, CHECK_OUT, or OTHER.
 Ensure all flexibility values match: FIXED, FLEXIBLE, or OPTIONAL.
+Keep each day focused to 3-4 distinct highlight stops (Morning, Midday/Lunch, Sunset/Dinner). Keep notes to 1 crisp sentence for fast generation.
 Include real local attractions and authentic food spots for ${destination}.`;
 
       const aiPlan = await this.callGemini(prompt, true);
