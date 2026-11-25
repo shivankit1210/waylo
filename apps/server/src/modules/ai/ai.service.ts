@@ -1,4 +1,6 @@
 import { prisma } from '../../config/database.js';
+import { env } from '../../config/env.js';
+import { logger } from '../../utils/logger.js';
 import { AppError } from '../../utils/errors.js';
 import {
   ItineraryItemType,
@@ -86,10 +88,142 @@ function findDestinationProfile(destination: string): DestinationProfile | null 
 
 export class AIService {
   /**
+   * Helper to invoke Google Gemini 1.5 Flash with structured JSON or text
+   */
+  private async callGemini(prompt: string, isJson: boolean = true): Promise<any> {
+    const apiKey = env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const payload: any = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+        },
+      };
+
+      if (isJson) {
+        payload.generationConfig.responseMimeType = 'application/json';
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        logger.warn(`Gemini API responded with status ${res.status}: ${errText}`);
+        return null;
+      }
+
+      const data: any = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return null;
+
+      if (isJson) {
+        let cleaned = text.trim();
+        if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
+        else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
+        if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+        return JSON.parse(cleaned.trim());
+      }
+
+      return text;
+    } catch (err) {
+      logger.warn('Failed to call Gemini API, falling back to curated templates:', err);
+      return null;
+    }
+  }
+
+  /**
    * Generate an intelligent, structured day-by-day itinerary
    */
   async generateItinerary(input: GenerateItineraryInput): Promise<AIGeneratedItinerary> {
     const { destination, origin, daysCount, tripType, travelPace, budget, interests, preferences } = input;
+
+    // 1. Try Google Gemini Generative AI if API key is provided
+    if (env.GEMINI_API_KEY) {
+      const prompt = `You are the master travel planner and road trip architect for Waylo.
+Create an extraordinary, rich, and highly realistic day-by-day travel itinerary with these requirements:
+- Destination: ${destination}
+- Origin / Departure Point: ${origin || 'Same as destination'}
+- Duration: ${daysCount} days
+- Trip Type / Vehicle: ${tripType}
+- Travel Pace: ${travelPace}
+- Budget Level: ${budget}
+- Traveler Interests: ${interests?.join(', ') || 'Scenic routes, local culture, cuisine, photography'}
+- Custom User Preferences: ${preferences || 'None'}
+
+Return ONLY a valid JSON object matching this TypeScript structure:
+{
+  "tripTitle": "Catchy adventure title for this trip",
+  "summary": "2-3 sentences capturing the essence, route character, and experience",
+  "estimatedBudgetNotes": "Actionable budget allocation breakdown for ${budget} tier",
+  "highlights": ["3 to 5 key highlights and must-visit spots"],
+  "days": [
+    {
+      "dayNumber": 1,
+      "title": "Day 1 theme / title",
+      "startLocation": "Starting location",
+      "endLocation": "End location for day",
+      "notes": "Route pointer, driving conditions, or photography tips",
+      "stops": [
+        {
+          "title": "Specific landmark, restaurant, scenic viewpoint, or hotel",
+          "itemType": "SIGHTSEEING" | "ACTIVITY" | "MEAL" | "TRAVEL" | "REST" | "FUEL_STOP" | "CHECK_IN" | "CHECK_OUT" | "OTHER",
+          "location": "Location name",
+          "plannedStartTime": "09:00",
+          "plannedEndTime": "11:00",
+          "plannedDistanceKm": 25,
+          "flexibility": "FIXED" | "FLEXIBLE" | "OPTIONAL",
+          "isOptional": false,
+          "notes": "Practical tip or description"
+        }
+      ]
+    }
+  ]
+}
+
+Ensure all itemType values match: SIGHTSEEING, ACTIVITY, MEAL, TRAVEL, REST, FUEL_STOP, CHECK_IN, CHECK_OUT, or OTHER.
+Ensure all flexibility values match: FIXED, FLEXIBLE, or OPTIONAL.
+Include real local attractions and authentic food spots for ${destination}.`;
+
+      const aiPlan = await this.callGemini(prompt, true);
+      if (aiPlan && Array.isArray(aiPlan.days) && aiPlan.days.length > 0) {
+        logger.info(`✨ Generated itinerary for ${destination} using Google Gemini 1.5 Flash`);
+        return {
+          tripTitle: aiPlan.tripTitle || `${destination} Adventure`,
+          summary: aiPlan.summary || `A personalized ${daysCount}-day trip to ${destination}.`,
+          estimatedBudgetNotes: aiPlan.estimatedBudgetNotes || `Estimated budget level: ${budget}`,
+          highlights: Array.isArray(aiPlan.highlights) ? aiPlan.highlights : [],
+          days: aiPlan.days.map((d: any, idx: number) => ({
+            dayNumber: d.dayNumber || idx + 1,
+            title: d.title || `Day ${idx + 1}`,
+            startLocation: d.startLocation || origin || destination,
+            endLocation: d.endLocation || destination,
+            notes: d.notes || null,
+            stops: Array.isArray(d.stops)
+              ? d.stops.map((s: any) => ({
+                  title: s.title || 'Stop',
+                  itemType: s.itemType || ItineraryItemType.SIGHTSEEING,
+                  location: s.location || destination,
+                  plannedStartTime: s.plannedStartTime || '09:00',
+                  plannedEndTime: s.plannedEndTime || '10:30',
+                  plannedDistanceKm: typeof s.plannedDistanceKm === 'number' ? s.plannedDistanceKm : null,
+                  flexibility: s.flexibility || ActivityFlexibility.FLEXIBLE,
+                  isOptional: Boolean(s.isOptional),
+                  notes: s.notes || null,
+                }))
+              : [],
+          })),
+        };
+      }
+    }
+
+    // 2. Fallback to curated heuristic & profile engine
     const profile = findDestinationProfile(destination);
 
     const tripTitle = `${destination} ${tripType === TripType.MOTORCYCLE ? 'Rider’s Odyssey' : 'Expedition'}`;
@@ -320,6 +454,51 @@ export class AIService {
    */
   async generatePacking(input: GeneratePackingInput): Promise<AIGeneratedPackingList> {
     const { destination, tripType, daysCount, climate, includeRidingGear } = input;
+
+    // 1. Try Google Gemini Generative AI if API key is provided
+    if (env.GEMINI_API_KEY) {
+      const prompt = `You are the master travel gear and packing expert for Waylo.
+Generate an intelligent, comprehensive packing checklist for a ${daysCount}-day trip to ${destination}.
+Trip Type / Transport: ${tripType}
+Climate / Weather: ${climate || 'Seasonal'}
+Include Riding Gear: ${Boolean(includeRidingGear || tripType === TripType.MOTORCYCLE)}
+
+Return ONLY a valid JSON object matching this structure:
+{
+  "title": "${destination} AI Smart Packing Checklist",
+  "summary": "Tailored checklist of gear and clothing essentials optimized for ${destination}",
+  "items": [
+    {
+      "name": "Specific gear or clothing item name",
+      "category": "TOPS" | "BOTTOMS" | "INNERWEAR" | "SLEEPWEAR" | "FOOTWEAR" | "WEATHER_LAYERS" | "MOTORCYCLE_GEAR" | "DOCUMENTS" | "ELECTRONICS" | "TOILETRIES" | "MEDICINES" | "FOOD_WATER" | "MISCELLANEOUS",
+      "quantity": 1,
+      "isRequired": true,
+      "notes": "Practical tip on packing or why it is essential"
+    }
+  ]
+}
+
+Ensure all category values match one of: TOPS, BOTTOMS, INNERWEAR, SLEEPWEAR, FOOTWEAR, WEATHER_LAYERS, MOTORCYCLE_GEAR, DOCUMENTS, ELECTRONICS, TOILETRIES, MEDICINES, FOOD_WATER, MISCELLANEOUS.
+Include practical essentials tailored specifically to ${destination} and ${tripType}.`;
+
+      const aiPacking = await this.callGemini(prompt, true);
+      if (aiPacking && Array.isArray(aiPacking.items) && aiPacking.items.length > 0) {
+        logger.info(`✨ Generated smart packing checklist for ${destination} using Google Gemini`);
+        return {
+          title: aiPacking.title || `${destination} Packing Checklist`,
+          summary: aiPacking.summary || `Smart checklist for a ${daysCount}-day trip to ${destination}`,
+          items: aiPacking.items.map((item: any) => ({
+            name: item.name || 'Essential Item',
+            category: item.category || PackingCategory.MISCELLANEOUS,
+            quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+            isRequired: Boolean(item.isRequired),
+            notes: item.notes || null,
+          })),
+        };
+      }
+    }
+
+    // 2. Fallback to curated heuristic checklist
     const profile = findDestinationProfile(destination);
     const isCold = climate?.toLowerCase().includes('cold') || destination.toLowerCase().includes('ladakh') || destination.toLowerCase().includes('spiti') || destination.toLowerCase().includes('himalaya');
     const isMotorcycle = tripType === TripType.MOTORCYCLE || includeRidingGear;
@@ -457,9 +636,40 @@ export class AIService {
    */
   async chatCopilot(input: ChatCopilotInput): Promise<AIChatResponse> {
     const { message, tripContext } = input;
-    const lower = message.toLowerCase();
-
     const destination = tripContext?.destination || 'your destination';
+
+    // 1. Try Google Gemini Generative AI if API key is provided
+    if (env.GEMINI_API_KEY) {
+      const prompt = `You are Waylo AI Travel Copilot, an enthusiastic, knowledgeable, and road-tested travel companion and expedition guide.
+Trip Context:
+- Destination: ${destination}
+- Trip Type / Transport: ${tripContext?.tripType || 'Road Trip'}
+- Duration: ${tripContext?.daysCount || 'Multi-day'} days
+- Start Location: ${tripContext?.startLocation || 'Not specified'}
+
+User says: "${message}"
+
+Respond with:
+1. An engaging, helpful, practical markdown response (2-3 concise paragraphs with bullet points or tips where relevant).
+2. Exactly 3-4 short, punchy follow-up questions or actions the user might want to take next.
+
+Return ONLY a JSON object:
+{
+  "message": "Your markdown response here",
+  "suggestions": ["Short suggestion 1", "Short suggestion 2", "Short suggestion 3"]
+}`;
+
+      const aiChat = await this.callGemini(prompt, true);
+      if (aiChat && aiChat.message) {
+        return {
+          message: aiChat.message,
+          suggestions: Array.isArray(aiChat.suggestions) ? aiChat.suggestions : [],
+        };
+      }
+    }
+
+    // 2. Fallback to contextual heuristic intent engine
+    const lower = message.toLowerCase();
     const profile = findDestinationProfile(destination);
 
     // Contextual responses based on intent
