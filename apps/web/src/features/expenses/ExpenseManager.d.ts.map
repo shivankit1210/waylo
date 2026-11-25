@@ -1,1 +1,0 @@
-{"version":3,"file":"ExpenseManager.d.ts","sourceRoot":"","sources":["ExpenseManager.tsx"],"names":[],"mappings":"AA6BA,OAAO,KAAK,EAAE,eAAe,EAAyB,MAAM,eAAe,CAAC;AAE5E,UAAU,mBAAmB;IAC3B,IAAI,EAAE,eAAe,GAAG,GAAG,CAAC;CAC7B;AAED,wBAAgB,cAAc,CAAC,EAAE,IAAI,EAAE,EAAE,mBAAmB,+BAkX3D"}
